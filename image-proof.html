@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>My Original Images - Copyright Proof</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; }
+        .drop-area { border: 3px dashed #ccc; padding: 25px; text-align: center; margin: 20px 0; }
+        .image-container { margin-bottom: 30px; border-bottom: 1px solid #eee; padding-bottom: 20px; }
+        img { max-width: 800px; border: 1px solid #ddd; }
+        .timestamp { font-weight: bold; font-size: 20px; margin-bottom: 20px; }
+        .hash { font-family: monospace; font-size: 12px; margin: 5px 0; color: #555; }
+        #save-button { padding: 10px 20px; font-size: 16px; background: #4CAF50; color: white; border: none; cursor: pointer; }
+        .instructions { background: #f9f9f9; padding: 15px; border-left: 4px solid #4CAF50; margin-bottom: 20px; }
+    </style>
+</head>
+<body>
+    <h1>My Original Images - Copyright Proof</h1>
+    
+    <div class="instructions">
+        <h3>Instructions:</h3>
+        <p>1. Select all your PNG files from your folder.</p>
+        <p>2. Drag and drop them into the box below.</p>
+        <p>3. Wait for the images to load and hashes to be calculated.</p>
+        <p>4. The page will automatically generate your proof document.</p>
+        <p>5. Upload this HTML page to GitHub Pages following the steps below.</p>
+    </div>
+    
+    <div class="timestamp">Timestamp: <span id="current-date"></span></div>
+    
+    <div class="drop-area" id="drop-area">
+        <h2>Drop PNG Files Here</h2>
+        <p>Or click to select files</p>
+        <input type="file" id="file-input" multiple accept="image/png" style="display: none;">
+    </div>
+    
+    <p id="file-count"></p>
+    
+    <h2>File Hashes (SHA-256)</h2>
+    <pre id="file-hashes"></pre>
+    
+    <div id="image-gallery">
+        <!-- Images will be added here by the script -->
+    </div>
+    
+    <script>
+        // Add current date and time
+        document.getElementById('current-date').textContent = new Date().toISOString();
+        
+        // Setup the drop zone and file input
+        const dropArea = document.getElementById('drop-area');
+        const fileInput = document.getElementById('file-input');
+        const fileHashes = document.getElementById('file-hashes');
+        const fileCount = document.getElementById('file-count');
+        const gallery = document.getElementById('image-gallery');
+        let totalFiles = 0;
+        
+        // Register event listeners
+        dropArea.addEventListener('click', () => fileInput.click());
+        fileInput.addEventListener('change', handleFiles);
+        dropArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropArea.style.background = '#f0f0f0';
+        });
+        dropArea.addEventListener('dragleave', () => {
+            dropArea.style.background = '';
+        });
+        dropArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropArea.style.background = '';
+            const files = e.dataTransfer.files;
+            processFiles(files);
+        });
+        
+        // Handle files from input
+        function handleFiles() {
+            processFiles(fileInput.files);
+        }
+        
+        // Process the dropped/selected files
+        function processFiles(files) {
+            totalFiles = files.length;
+            fileCount.textContent = `Processing ${totalFiles} files...`;
+            
+            // Clear previous content
+            fileHashes.textContent = '';
+            gallery.innerHTML = '';
+            
+            // Create array to store hash results
+            const hashPromises = [];
+            
+            // Process each file
+            Array.from(files).forEach(file => {
+                // Only process PNG files
+                if (file.type !== 'image/png') return;
+                
+                // Create a hash for the file
+                const hashPromise = hashFile(file).then(hash => {
+                    return { name: file.name, hash: hash };
+                });
+                hashPromises.push(hashPromise);
+                
+                // Create an image container
+                const container = document.createElement('div');
+                container.className = 'image-container';
+                
+                const heading = document.createElement('h3');
+                heading.textContent = file.name;
+                container.appendChild(heading);
+                
+                const img = document.createElement('img');
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    img.src = e.target.result;
+                };
+                reader.readAsDataURL(file);
+                img.alt = file.name;
+                container.appendChild(img);
+                
+                gallery.appendChild(container);
+            });
+            
+            // Wait for all hashes to complete
+            Promise.all(hashPromises).then(results => {
+                // Sort results by filename
+                results.sort((a, b) => a.name.localeCompare(b.name));
+                
+                // Display the hashes
+                results.forEach(result => {
+                    fileHashes.textContent += `${result.hash}  ${result.name}\n`;
+                });
+                
+                fileCount.textContent = `Successfully processed ${results.length} files.`;
+            });
+        }
+        
+        // Function to compute SHA-256 hash of a file
+        async function hashFile(file) {
+            const arrayBuffer = await file.arrayBuffer();
+            const hashBuffer = await crypto.subtle.digest('SHA-256', arrayBuffer);
+            const hashArray = Array.from(new Uint8Array(hashBuffer));
+            const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+            return hashHex;
+        }
+    </script>
+</body>
+</html>
